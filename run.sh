@@ -1,4 +1,4 @@
 cmake -B build
 cmake --build build
-./build/tinyrenderer
+time ./build/tinyrenderer
 open framebuffer.tga
