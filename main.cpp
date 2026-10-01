@@ -1,4 +1,6 @@
-#include <iostream>
+#include "geometry.h"
+#include "model.h"
+
 #include <sstream>
 
 #include "tgaimage.h"
@@ -38,21 +40,7 @@ void line(int ax, int ay, int bx, int by, TGAImage &framebuffer,
   }
 }
 
-struct Vertex {
-  float x, y, z;
-};
-
-struct Corner {
-  int v;  // Vertex
-  int vt; // Texture
-  int vn; // Normal
-};
-
-struct Face {
-  Corner corners[3];
-};
-
-Vertex map_to_2d_space(Vertex vertex, int width, int height) {
+vec3 map_to_2d_space(vec3 vertex, int width, int height) {
   vertex.x = (vertex.x + 1) * width / 2;
   vertex.y = (vertex.y + 1) * height / 2;
   vertex.z = (vertex.z + 1) / 2;
@@ -66,45 +54,13 @@ int main(int argc, char **argv) {
   constexpr int height = width / aspect_ratio;
   TGAImage framebuffer(width, height, TGAImage::RGB);
 
-  std::ifstream file("obj/diablo3_pose/diablo3_pose.obj");
+  Model model{"obj/diablo3_pose/diablo3_pose.obj"};
+  ;
 
-  if (!file.is_open()) {
-    std::cerr << "Error opening file" << std::endl;
-    return -1;
-  }
-
-  std::vector<Vertex> vertices;
-  std::vector<Face> faces;
-  char slash;
-
-  std::string row;
-  while (std::getline(file, row)) {
-    std::istringstream iss(row);
-    std::string type;
-    iss >> type;
-    if (type == "v") {
-      Vertex vertex;
-      iss >> vertex.x >> vertex.y >> vertex.z;
-
-      vertices.push_back(vertex);
-    } else if (type == "f") {
-      Face face;
-      for (int i = 0; i < 3; i++) {
-        Corner corner;
-        iss >> corner.v >> slash >> corner.vt >> slash >> corner.vn;
-        corner.v--;
-        corner.vt--;
-        corner.vn--;
-        face.corners[i] = corner;
-      }
-      faces.push_back(face);
-    }
-  }
-
-  for (const Face &face : faces) {
-    Vertex a = map_to_2d_space(vertices[face.corners[0].v], width, height);
-    Vertex b = map_to_2d_space(vertices[face.corners[1].v], width, height);
-    Vertex c = map_to_2d_space(vertices[face.corners[2].v], width, height);
+  for (int i = 0; i < model.num_faces(); i++) {
+    vec3 a = map_to_2d_space(model.vert(i, 0), width, height);
+    vec3 b = map_to_2d_space(model.vert(i, 1), width, height);
+    vec3 c = map_to_2d_space(model.vert(i, 2), width, height);
 
     line(a.x, a.y, b.x, b.y, framebuffer, red);
     line(a.x, a.y, c.x, c.y, framebuffer, red);
