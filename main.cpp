@@ -1,6 +1,6 @@
 #include <iostream>
+#include <sstream>
 
-#include "cmath"
 #include "tgaimage.h"
 
 constexpr TGAColor white = {255, 255, 255, 255}; // attention, BGRA order
@@ -38,26 +38,80 @@ void line(int ax, int ay, int bx, int by, TGAImage &framebuffer,
   }
 }
 
+struct Vertex {
+  float x, y, z;
+};
+
+struct Corner {
+  int v;  // Vertex
+  int vt; // Texture
+  int vn; // Normal
+};
+
+struct Face {
+  Corner corners[3];
+};
+
+Vertex map_to_2d_space(Vertex vertex, int width, int height) {
+  vertex.x = (vertex.x + 1) * width / 2;
+  vertex.y = (vertex.y + 1) * height / 2;
+  vertex.z = (vertex.z + 1) / 2;
+
+  return vertex;
+}
+
 int main(int argc, char **argv) {
-  constexpr int width = 64;
-  constexpr int height = 64;
+  constexpr int aspect_ratio = 1;
+  constexpr int width = 1200;
+  constexpr int height = width / aspect_ratio;
   TGAImage framebuffer(width, height, TGAImage::RGB);
 
-  int ax = 7, ay = 3;
-  int bx = 12, by = 37;
-  int cx = 62, cy = 53;
+  std::ifstream file("obj/diablo3_pose/diablo3_pose.obj");
 
-  std::srand(std::time({}));
-  for (int i = 0; i < (1 << 24); i++) {
-    int ax = std::rand() % width, ay = std::rand() % height;
-    int bx = std::rand() % width, by = std::rand() % height;
-    line(ax, ay, bx, by, framebuffer,
-         {static_cast<uint8_t>(rand() % 256),
-          static_cast<uint8_t>(rand() % 256),
-          static_cast<uint8_t>(rand() % 256),
-          static_cast<uint8_t>(rand() % 256)});
+  if (!file.is_open()) {
+    std::cerr << "Error opening file" << std::endl;
+    return -1;
+  }
+
+  std::vector<Vertex> vertices;
+  std::vector<Face> faces;
+  char slash;
+
+  std::string row;
+  while (std::getline(file, row)) {
+    std::istringstream iss(row);
+    std::string type;
+    iss >> type;
+    if (type == "v") {
+      Vertex vertex;
+      iss >> vertex.x >> vertex.y >> vertex.z;
+
+      vertices.push_back(vertex);
+    } else if (type == "f") {
+      Face face;
+      for (int i = 0; i < 3; i++) {
+        Corner corner;
+        iss >> corner.v >> slash >> corner.vt >> slash >> corner.vn;
+        corner.v--;
+        corner.vt--;
+        corner.vn--;
+        face.corners[i] = corner;
+      }
+      faces.push_back(face);
+    }
+  }
+
+  for (const Face &face : faces) {
+    Vertex a = map_to_2d_space(vertices[face.corners[0].v], width, height);
+    Vertex b = map_to_2d_space(vertices[face.corners[1].v], width, height);
+    Vertex c = map_to_2d_space(vertices[face.corners[2].v], width, height);
+
+    line(a.x, a.y, b.x, b.y, framebuffer, red);
+    line(a.x, a.y, c.x, c.y, framebuffer, red);
+    line(b.x, b.y, c.x, c.y, framebuffer, red);
   }
 
   framebuffer.write_tga_file("framebuffer.tga");
+
   return 0;
 }
