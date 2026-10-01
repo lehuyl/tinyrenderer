@@ -11,6 +11,10 @@ constexpr TGAColor red = {0, 0, 255, 255};
 constexpr TGAColor blue = {255, 128, 64, 255};
 constexpr TGAColor yellow = {0, 200, 255, 255};
 
+constexpr int aspect_ratio = 1;
+constexpr int width = 1200;
+constexpr int height = width / aspect_ratio;
+
 void line(int ax, int ay, int bx, int by, TGAImage &framebuffer,
           TGAColor color) {
   bool steep = std::abs(ax - bx) < std::abs(ay - by);
@@ -40,7 +44,7 @@ void line(int ax, int ay, int bx, int by, TGAImage &framebuffer,
   }
 }
 
-vec3 map_to_2d_space(vec3 vertex, int width, int height) {
+vec3 project(vec3 vertex) {
   vertex.x = (vertex.x + 1) * width / 2;
   vertex.y = (vertex.y + 1) * height / 2;
   vertex.z = (vertex.z + 1) / 2;
@@ -49,22 +53,28 @@ vec3 map_to_2d_space(vec3 vertex, int width, int height) {
 }
 
 int main(int argc, char **argv) {
-  constexpr int aspect_ratio = 1;
-  constexpr int width = 1200;
-  constexpr int height = width / aspect_ratio;
+  if (argc != 2) {
+    std::cerr << "Usage: " << argv[0] << " obj/model.obj" << std::endl;
+    return 1;
+  }
+
+  Model model(argv[1]);
+
   TGAImage framebuffer(width, height, TGAImage::RGB);
 
-  Model model{"obj/diablo3_pose/diablo3_pose.obj"};
-  ;
-
   for (int i = 0; i < model.num_faces(); i++) {
-    vec3 a = map_to_2d_space(model.vert(i, 0), width, height);
-    vec3 b = map_to_2d_space(model.vert(i, 1), width, height);
-    vec3 c = map_to_2d_space(model.vert(i, 2), width, height);
+    auto a = project(model.vert(i, 0));
+    auto b = project(model.vert(i, 1));
+    auto c = project(model.vert(i, 2));
 
     line(a.x, a.y, b.x, b.y, framebuffer, red);
     line(a.x, a.y, c.x, c.y, framebuffer, red);
     line(b.x, b.y, c.x, c.y, framebuffer, red);
+  }
+
+  for (int i = 0; i < model.num_vertices(); i++) {
+    auto v = project(model.vert(i));
+    framebuffer.set(v.x, v.y, white);
   }
 
   framebuffer.write_tga_file("framebuffer.tga");
