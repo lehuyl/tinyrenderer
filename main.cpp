@@ -1,3 +1,6 @@
+#include <iostream>
+
+
 #include "cmath"
 #include "tgaimage.h"
 
@@ -8,10 +11,25 @@ constexpr TGAColor blue = {255, 128, 64, 255};
 constexpr TGAColor yellow = {0, 200, 255, 255};
 
 void line(int ax, int ay, int bx, int by, TGAImage &framebuffer, TGAColor color) {
-    for (float t = 0.; t < 1.; t += 0.02) {
-        int x = std::round(ax + (bx - ax) * t);
+    bool steep = std::abs(ax - bx) < std::abs(ay - by);
+    if (steep) {
+        std::swap(ax, ay);
+        std::swap(bx, by);
+    }
+
+    if (ax > bx) {
+        std::swap(ax, bx);
+        std::swap(ay, by);
+    }
+
+    for (float x = ax; x <= bx; x++) {
+        float t = (x - ax) / static_cast<float>(bx - ax);
         int y = std::round(ay + (by - ay) * t);
-        framebuffer.set(x, y, color);
+        if (steep) {
+            framebuffer.set(y, x, color);
+        } else {
+            framebuffer.set(x, y, color);
+        }
     }
 }
 
@@ -24,11 +42,14 @@ int main(int argc, char **argv) {
     int bx = 12, by = 37;
     int cx = 62, cy = 53;
 
-    line(ax, ay, bx, by, framebuffer, blue);
-
-    framebuffer.set(ax, ay, white);
-    framebuffer.set(bx, by, white);
-    framebuffer.set(cx, cy, white);
+    std::srand(std::time({}));
+    for (int i = 0; i < (1 << 24); i++) {
+        int ax = std::rand() % width, ay = std::rand() % height;
+        int bx = std::rand() % width, by = std::rand() % height;
+        line(ax, ay, bx, by, framebuffer,
+             {static_cast<uint8_t>(rand() % 256), static_cast<uint8_t>(rand() % 256),
+              static_cast<uint8_t>(rand() % 256), static_cast<uint8_t>(rand() % 256)});
+    }
 
     framebuffer.write_tga_file("framebuffer.tga");
     return 0;
