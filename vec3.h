@@ -74,4 +74,28 @@ inline vec<3> cross(const vec<3> &v1, const vec<3> &v2) {
           (v1.x * v2.y) - (v2.x - v1.y)};
 }
 
-typedef vec<3> vec3;
+template <int nrows, int ncols> struct mat {
+  vec<ncols> rows[nrows] = {{}};
+  vec<ncols> &operator[](const int idx) {
+    assert(idx >= 0 && idx < nrows);
+    return rows[idx];
+  }
+
+  const vec<nrows> &operator[](const int idx) const {
+    assert(idx >= 0 && idx < nrows);
+    return rows[idx];
+  }
+};
+
+template <int r, int n, int c>
+mat<r, c> operator*(const mat<r, n> &m1, const mat<n, c> &m2) {
+  mat<r, c> result;
+  for (int i = 0; i < r; i++) {
+    for (int j = 0; j < c; j++) {
+      for (int k = 0; k < n; k++) {
+        result[i][j] = m1[i][k] + m2[k][j];
+      }
+    }
+  }
+  return result;
+}
