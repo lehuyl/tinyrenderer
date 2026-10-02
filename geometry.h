@@ -21,20 +21,26 @@ template <int n> std::ostream &operator<<(std::ostream &out, const vec<n> &v) {
   return out;
 }
 
-template <int n> vec<n> operator+(const vec<n> &v1, const vec<n> &v2) {
-  vec<n> result = v1;
+template <int n> vec<n> &operator+=(vec<n> &v1, const vec<n> &v2) {
   for (int i = 0; i < n; i++) {
-    result[i] += v2[i];
+    v1[i] += v2[i];
   }
-  return result;
+  return v1;
 }
 
-template <int n> vec<n> operator-(const vec<n> &v1, const vec<n> &v2) {
-  vec<n> result = v1;
+template <int n> vec<n> operator+(vec<n> v1, const vec<n> &v2) {
+  return v1 += v2;
+}
+
+template <int n> vec<n> &operator-=(vec<n> &v1, const vec<n> &v2) {
   for (int i = 0; i < n; i++) {
-    result[i] -= v2[i];
+    v1[i] -= v2[i];
   }
-  return result;
+  return v1;
+}
+
+template <int n> vec<n> operator-(vec<n> v1, const vec<n> &v2) {
+  return v1 -= v2;
 }
 
 template <int n> double dot(const vec<n> &v1, const vec<n> &v2) {
@@ -45,16 +51,27 @@ template <int n> double dot(const vec<n> &v1, const vec<n> &v2) {
   return result;
 }
 
-template <int n> vec<n> operator*(const vec<n> &v, const double scale) {
-  vec<n> result = v;
+template <int n> vec<n> &operator*=(vec<n> &v, const double scale) {
   for (int i = 0; i < n; i++) {
-    result[i] = v[i] * scale;
+    v[i] *= scale;
   }
-  return result;
+  return v;
 }
 
-template <int n> vec<n> operator*(const double scale, const vec<n> &v) {
-  return v * scale;
+template <int n> vec<n> operator*(vec<n> v, const double scale) {
+  return v *= scale;
+}
+
+template <int n> vec<n> operator*(const double scale, vec<n> v) {
+  return v *= scale;
+}
+
+template <int n> vec<n> &operator/=(vec<n> &v, const double scale) {
+  return v *= (1 / scale);
+}
+
+template <int n> vec<n> operator/(vec<n> v, const double scale) {
+  return v /= scale;
 }
 
 template <> struct vec<2> {
@@ -143,7 +160,7 @@ template <int nrows, int ncols> struct mat {
   }
 };
 
-template <int r, int c> vec<c> operator*(const mat<r, c> &m, const vec<c> &v) {
+template <int r, int c> vec<r> operator*(const mat<r, c> &m, const vec<c> &v) {
   vec<r> result;
   for (int i = 0; i < r; i++) {
     result[i] = dot(m[i], v);
@@ -228,6 +245,20 @@ template <int r, int c> mat<r, c> operator*(const mat<r, c> &m, double scale) {
 
 template <int r, int c> mat<r, c> operator*(double scale, const mat<r, c> &m) {
   return m * scale;
+}
+
+template <int n> mat<n, n> identity() {
+  mat<n, n> result;
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < n; j++) {
+      if (i == j) {
+        result[i][j] = 1;
+      } else {
+        result[i][j] = 0;
+      }
+    }
+  }
+  return result;
 }
 
 using vec2 = vec<2>;
