@@ -71,7 +71,7 @@ template <> struct vec<3> {
 
 inline vec<3> cross(const vec<3> &v1, const vec<3> &v2) {
   return {(v1.y * v2.z) - (v2.y * v1.z), (v2.x * v1.z) - (v1.x * v2.z),
-          (v1.x * v2.y) - (v2.x - v1.y)};
+          (v1.x * v2.y) - (v2.x * v1.y)};
 }
 
 template <int nrows, int ncols> struct mat {
@@ -81,7 +81,7 @@ template <int nrows, int ncols> struct mat {
     return rows[idx];
   }
 
-  const vec<nrows> &operator[](const int idx) const {
+  const vec<ncols> &operator[](const int idx) const {
     assert(idx >= 0 && idx < nrows);
     return rows[idx];
   }
@@ -93,9 +93,79 @@ mat<r, c> operator*(const mat<r, n> &m1, const mat<n, c> &m2) {
   for (int i = 0; i < r; i++) {
     for (int j = 0; j < c; j++) {
       for (int k = 0; k < n; k++) {
-        result[i][j] = m1[i][k] + m2[k][j];
+        result[i][j] += m1[i][k] * m2[k][j];
       }
     }
   }
   return result;
 }
+
+template <int r, int c> mat<c, r> transpose(const mat<r, c> &m) {
+  mat<c, r> result;
+  for (int i = 0; i < r; i++) {
+    for (int j = 0; j < c; j++) {
+      result[j][i] = m[i][j];
+    }
+  }
+  return result;
+}
+
+template <int n>
+mat<n - 1, n - 1> minor_matrix(const mat<n, n> &m, const int row,
+                               const int col) {
+  mat<n - 1, n - 1> result;
+  for (int i = 0; i < n - 1; i++) {
+    for (int j = 0; j < n - 1; j++) {
+      result[i][j] = m[i < row ? i : i + 1][j < col ? j : j + 1];
+    }
+  }
+
+  return result;
+}
+
+template <int n> double determinant(const mat<n, n> &m) {
+  if constexpr (n == 1) {
+    return m[0][0];
+  } else {
+    double result = 0.0;
+    for (int j = 0; j < n; j++) {
+      double sign = (j % 2 == 0) ? 1 : -1;
+      result += sign * m[0][j] * determinant(minor_matrix(m, 0, j));
+    }
+    return result;
+  }
+}
+
+template <int n> mat<n, n> adj(const mat<n, n> &m) {
+  mat<n, n> result;
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < n; j++) {
+      double sign = ((j % 2 == 0) ? 1 : -1) * ((i % 2 == 0) ? 1 : -1);
+      // Transpose in same step
+      result[j][i] = sign * determinant(minor_matrix(m, i, j));
+    }
+  }
+  return result;
+}
+
+template <int n> mat<n, n> inverse(const mat<n, n> &m) {
+  auto det = determinant(m);
+  assert(det != 0);
+  return 1 / det * adj(m);
+}
+
+template <int r, int c> mat<r, c> operator*(const mat<r, c> &m, double scale) {
+  mat<r, c> result;
+  for (int i = 0; i < r; i++) {
+    result[i] = m[i] * scale;
+  }
+  return result;
+}
+
+template <int r, int c> mat<r, c> operator*(double scale, const mat<r, c> &m) {
+  return m * scale;
+}
+
+using vec2 = vec<2>;
+using vec3 = vec<3>;
+using vec4 = vec<4>;
