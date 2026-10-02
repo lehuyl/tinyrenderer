@@ -12,7 +12,7 @@ constexpr TGAColor blue = {255, 128, 64, 255};
 constexpr TGAColor yellow = {0, 200, 255, 255};
 
 constexpr int aspect_ratio = 1;
-constexpr int width = 128;
+constexpr int width = 1200;
 constexpr int height = width / aspect_ratio;
 
 void line(int ax, int ay, int bx, int by, TGAImage &framebuffer,
@@ -93,10 +93,20 @@ void triangle(int ax, int ay, int bx, int by, int cx, int cy,
 }
 
 int main(int argc, char **argv) {
+  Model model(argv[1]);
   TGAImage framebuffer(width, height, TGAImage::RGB);
-  triangle(7, 45, 35, 100, 45, 60, framebuffer, red);
-  triangle(120, 35, 90, 5, 45, 110, framebuffer, white);
-  triangle(115, 83, 80, 90, 85, 120, framebuffer, green);
+
+  for (int i = 0; i < model.num_faces(); i++) {
+    auto [ax, ay, _] = project(model.vert(i, 0));
+    auto [bx, by, _] = project(model.vert(i, 1));
+    auto [cx, cy, _] = project(model.vert(i, 2));
+    TGAColor random_color;
+
+    for (int v = 0; v < 3; v++) {
+      random_color[v] = std::rand() % 255;
+      triangle(ax, ay, bx, by, cx, cy, framebuffer, random_color);
+    }
+  }
 
   framebuffer.write_tga_file("framebuffer.tga");
 
