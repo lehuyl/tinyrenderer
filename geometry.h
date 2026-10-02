@@ -57,6 +57,18 @@ template <int n> vec<n> operator*(const double scale, const vec<n> &v) {
   return v * scale;
 }
 
+template <> struct vec<2> {
+  double x = 0, y = 0;
+  double &operator[](const int i) {
+    assert(i >= 0 && i < 2);
+    return i == 1 ? y : x;
+  }
+  double operator[](const int i) const {
+    assert(i >= 0 && i < 2);
+    return i == 1 ? y : x;
+  }
+};
+
 template <> struct vec<3> {
   double x = 0, y = 0, z = 0;
   double &operator[](const int i) {
@@ -69,10 +81,54 @@ template <> struct vec<3> {
   }
 };
 
+template <> struct vec<4> {
+  double x = 0, y = 0, z = 0, w = 0;
+  double &operator[](const int i) {
+    assert(i >= 0 && i < 4);
+    switch (i) {
+    case 0:
+      return x;
+    case 1:
+      return y;
+    case 2:
+      return z;
+    default:
+      return w;
+    }
+  }
+  double operator[](const int i) const {
+    assert(i >= 0 && i < 4);
+    switch (i) {
+    case 0:
+      return x;
+    case 1:
+      return y;
+    case 2:
+      return z;
+    default:
+      return w;
+    }
+  }
+};
+
 inline vec<3> cross(const vec<3> &v1, const vec<3> &v2) {
   return {(v1.y * v2.z) - (v2.y * v1.z), (v2.x * v1.z) - (v1.x * v2.z),
           (v1.x * v2.y) - (v2.x * v1.y)};
 }
+
+template <int n> double length_squared(const vec<n> &v) { return dot(v, v); }
+
+template <int n> double length(const vec<n> &v) {
+  return std::sqrt(length_squared(v));
+}
+
+template <int n> vec<n> unit_vector(const vec<n> &v) {
+  vec<n> result = v;
+  auto inverse_length = 1 / length(v);
+  return result * inverse_length;
+}
+
+template <int n> vec<n> operator-(const vec<n> &v) { return -1 * v; }
 
 template <int nrows, int ncols> struct mat {
   vec<ncols> rows[nrows] = {{}};
@@ -86,6 +142,14 @@ template <int nrows, int ncols> struct mat {
     return rows[idx];
   }
 };
+
+template <int r, int c> vec<c> operator*(const mat<r, c> &m, const vec<c> &v) {
+  vec<r> result;
+  for (int i = 0; i < r; i++) {
+    result[i] = dot(m[i], v);
+  }
+  return result;
+}
 
 template <int r, int n, int c>
 mat<r, c> operator*(const mat<r, n> &m1, const mat<n, c> &m2) {
