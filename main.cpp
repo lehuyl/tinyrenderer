@@ -52,48 +52,42 @@ vec3 project(vec3 vertex) {
   return vertex;
 }
 
+struct vec2 {
+  float x, y;
+};
+
+inline float get_determinant(vec2 a, vec2 b) { return a.x * b.y - a.y * b.x; }
+
+bool inside(int ax, int ay, int bx, int by, int cx, int cy, int x, int y) {
+  vec2 v0(bx - ax, by - ay);
+  vec2 v1(cx - ax, cy - ay);
+  vec2 vp(x - ax, y - ay);
+
+  auto determinant = get_determinant(v0, v1);
+  auto alpha = get_determinant(vp, v1) / determinant;
+  auto beta = get_determinant(v0, vp) / determinant;
+
+  // third coefficient is 1 - alpha - beta
+  if (alpha < 0 || beta < 0 || alpha + beta > 1) {
+    return false;
+  } else {
+    return true;
+  }
+}
+
 void triangle(int ax, int ay, int bx, int by, int cx, int cy,
               TGAImage &framebuffer, TGAColor color) {
-  if (ay > by) {
-    std::swap(ax, bx);
-    std::swap(ay, by);
-  }
-  if (ay > cy) {
-    std::swap(ax, cx);
-    std::swap(ay, cy);
-  }
-  if (by > cy) {
-    std::swap(bx, cx);
-    std::swap(by, cy);
-  }
-  line(ax, ay, bx, by, framebuffer, color);
-  line(bx, by, cx, cy, framebuffer, color);
-  line(cx, cy, ax, ay, framebuffer, color);
+  int bbminx = std::min(std::min(ax, bx), cx);
+  int bbminy = std::min(std::min(ay, by), cy);
+  int bbmaxx = std::max(std::max(ax, bx), cx);
+  int bbmaxy = std::max(std::max(ay, by), cy);
 
-  if (ay == cy) {
-    return;
-  }
-
-  float next_left = ax;
-  float next_right = ax;
-  float dx_ac = static_cast<float>((cx - ax)) / (cy - ay);
-  float dx_ab = static_cast<float>((bx - ax)) / (by - ay);
-  float dx_bc = static_cast<float>((cx - bx)) / (cy - by);
-
-  for (int y = ay; y <= cy; y++) {
-    int x_start = std::round(std::min(next_left, next_right));
-    int x_end = std::round(std::max(next_left, next_right));
-
-    for (int x = x_start; x <= x_end; x++) {
-      framebuffer.set(std::round(x), y, color);
-    }
-
-    if (y < by) {
-      next_left += dx_ac;
-      next_right += dx_ab;
-    } else {
-      next_left += dx_ac;
-      next_right += dx_bc;
+#pragma omp parallel for
+  for (int x = bbminx; x <= bbmaxx; x++) {
+    for (int y = bbminy; y <= bbmaxy; y++) {
+      if (inside(ax, ay, bx, by, cx, cy, x, y)) {
+        framebuffer.set(x, y, color);
+      }
     }
   }
 }
