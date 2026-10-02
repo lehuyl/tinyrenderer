@@ -47,47 +47,44 @@ void line(int ax, int ay, int bx, int by, TGAImage &framebuffer,
 vec3 project(vec3 vertex) {
   vertex.x = (vertex.x + 1) * width / 2;
   vertex.y = (vertex.y + 1) * height / 2;
-  vertex.z = (vertex.z + 1) / 2;
+  vertex.z = (vertex.z + 1) * width / 2;
 
   return vertex;
 }
 
-struct vec2 {
-  float x, y;
-};
-
-inline float get_determinant(vec2 a, vec2 b) { return a.x * b.y - a.y * b.x; }
-
-bool inside(int ax, int ay, int bx, int by, int cx, int cy, int x, int y) {
-  vec2 v0(bx - ax, by - ay);
-  vec2 v1(cx - ax, cy - ay);
-  vec2 vp(x - ax, y - ay);
-
-  auto determinant = get_determinant(v0, v1);
-  auto alpha = get_determinant(vp, v1) / determinant;
-  auto beta = get_determinant(v0, vp) / determinant;
-
-  // third coefficient is 1 - alpha - beta
-  if (alpha < 0 || beta < 0 || alpha + beta > 1) {
-    return false;
-  } else {
-    return true;
-  }
+double signed_triangle_area(int ax, int ay, int bx, int by, int cx, int cy) {
+  return .5 * ((by - ay) * (bx + ax) + (cy - by) * (cx + bx) +
+               (ay - cy) * (ax + cx));
 }
 
-void triangle(int ax, int ay, int bx, int by, int cx, int cy,
-              TGAImage &framebuffer, TGAColor color) {
+void triangle(int ax, int ay, int az, int bx, int by, int bz, int cx, int cy,
+              int cz, TGAImage &framebuffer, TGAColor color_in[3]) {
   int bbminx = std::min(std::min(ax, bx), cx);
   int bbminy = std::min(std::min(ay, by), cy);
   int bbmaxx = std::max(std::max(ax, bx), cx);
   int bbmaxy = std::max(std::max(ay, by), cy);
+  double total_area = signed_triangle_area(ax, ay, bx, by, cx, cy);
+  if (total_area < 1)
+    return; // backface culling + discarding triangles that cover less than 1
+            // pixel
 
 #pragma omp parallel for
   for (int x = bbminx; x <= bbmaxx; x++) {
     for (int y = bbminy; y <= bbmaxy; y++) {
-      if (inside(ax, ay, bx, by, cx, cy, x, y)) {
-        framebuffer.set(x, y, color);
+      double alpha = signed_triangle_area(x, y, bx, by, cx, cy) / total_area;
+      double beta = signed_triangle_area(ax, ay, x, y, cx, cy) / total_area;
+      double gamma = signed_triangle_area(ax, ay, bx, by, x, y) / total_area;
+
+      if (alpha < 0 || beta < 0 || gamma < 0) {
+        continue;
       }
+      TGAColor color;
+      // Gradient
+      for (int ch = 0; ch < 3; ch++) {
+        color[ch] = alpha * color_in[0][ch] + beta * color_in[1][ch] +
+                    gamma * color_in[2][ch];
+      }
+      framebuffer.set(x, y, color);
     }
   }
 }
@@ -97,15 +94,18 @@ int main(int argc, char **argv) {
   TGAImage framebuffer(width, height, TGAImage::RGB);
 
   for (int i = 0; i < model.num_faces(); i++) {
-    auto [ax, ay, _] = project(model.vert(i, 0));
-    auto [bx, by, _] = project(model.vert(i, 1));
-    auto [cx, cy, _] = project(model.vert(i, 2));
-    TGAColor random_color;
+    auto [ax, ay, az] = project(model.vert(i, 0));
+    auto [bx, by, bz] = project(model.vert(i, 1));
+    auto [cx, cy, cz] = project(model.vert(i, 2));
+    TGAColor random_color[3];
 
-    for (int v = 0; v < 3; v++) {
-      random_color[v] = std::rand() % 255;
-      triangle(ax, ay, bx, by, cx, cy, framebuffer, random_color);
+    // Build colors
+    for (int g = 0; g < 3; g++) {
+      for (int v = 0; v < 3; v++) {
+        random_color[g][v] = std::rand() % 255;
+      }
     }
+    triangle(ax, ay, az, bx, by, bz, cx, cy, cz, framebuffer, random_color);
   }
 
   framebuffer.write_tga_file("framebuffer.tga");
