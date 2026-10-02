@@ -139,11 +139,7 @@ template <int n> double length(const vec<n> &v) {
   return std::sqrt(length_squared(v));
 }
 
-template <int n> vec<n> unit_vector(const vec<n> &v) {
-  vec<n> result = v;
-  auto inverse_length = 1 / length(v);
-  return result * inverse_length;
-}
+template <int n> vec<n> unit_vector(const vec<n> &v) { return v / length(v); }
 
 template <int n> vec<n> operator-(const vec<n> &v) { return -1 * v; }
 
@@ -232,7 +228,7 @@ template <int n> mat<n, n> adj(const mat<n, n> &m) {
 template <int n> mat<n, n> inverse(const mat<n, n> &m) {
   auto det = determinant(m);
   assert(det != 0);
-  return 1 / det * adj(m);
+  return adj(m) / det;
 }
 
 template <int r, int c> mat<r, c> operator*(const mat<r, c> &m, double scale) {
@@ -253,12 +249,34 @@ template <int n> mat<n, n> identity() {
     for (int j = 0; j < n; j++) {
       if (i == j) {
         result[i][j] = 1;
-      } else {
-        result[i][j] = 0;
       }
     }
   }
   return result;
+}
+
+template <int r, int c>
+mat<r, c> &operator+=(mat<r, c> m1, const mat<r, c> &m2) {
+  for (int i = 0; i < r; i++) {
+    m1[i] += m2[i];
+  }
+  return m1;
+}
+
+template <int r, int c> mat<r, c> operator+(mat<r, c> m1, const mat<r, c> &m2) {
+  return m1 += m2;
+}
+
+template <int r, int c>
+mat<r, c> &operator-=(mat<r, c> m1, const mat<r, c> &m2) {
+  for (int i = 0; i < r; i++) {
+    m1[i] -= m2[i];
+  }
+  return m1;
+}
+
+template <int r, int c> mat<r, c> operator-(mat<r, c> m1, const mat<r, c> &m2) {
+  return m1 -= m2;
 }
 
 using vec2 = vec<2>;
