@@ -164,6 +164,14 @@ template <int r, int c> vec<r> operator*(const mat<r, c> &m, const vec<c> &v) {
   return result;
 }
 
+template <int r, int c>
+std::ostream &operator<<(std::ostream &out, const mat<r, c> &m) {
+  for (int i = 0; i < r; i++) {
+    out << m[i] << "\n";
+  }
+  return out;
+}
+
 template <int r, int n, int c>
 mat<r, c> operator*(const mat<r, n> &m1, const mat<n, c> &m2) {
   mat<r, c> result;
@@ -225,22 +233,37 @@ template <int n> mat<n, n> adj(const mat<n, n> &m) {
   return result;
 }
 
+template <int r, int c>
+mat<r, c> &operator/=(mat<r, c> &m, double denominator) {
+  for (int i = 0; i < r; i++) {
+    m[i] /= denominator;
+  }
+  return m;
+}
+
+template <int r, int c> mat<r, c> operator/(mat<r, c> m, double denominator) {
+  return m /= denominator;
+}
+
 template <int n> mat<n, n> inverse(const mat<n, n> &m) {
   auto det = determinant(m);
   assert(det != 0);
   return adj(m) / det;
 }
 
-template <int r, int c> mat<r, c> operator*(const mat<r, c> &m, double scale) {
-  mat<r, c> result;
+template <int r, int c> mat<r, c> &operator*=(mat<r, c> &m, double scale) {
   for (int i = 0; i < r; i++) {
-    result[i] = m[i] * scale;
+    m[i] *= scale;
   }
-  return result;
+  return m;
 }
 
-template <int r, int c> mat<r, c> operator*(double scale, const mat<r, c> &m) {
-  return m * scale;
+template <int r, int c> mat<r, c> operator*(mat<r, c> m, double scale) {
+  return m *= scale;
+}
+
+template <int r, int c> mat<r, c> operator*(double scale, mat<r, c> m) {
+  return m *= scale;
 }
 
 template <int n> mat<n, n> identity() {
@@ -256,7 +279,7 @@ template <int n> mat<n, n> identity() {
 }
 
 template <int r, int c>
-mat<r, c> &operator+=(mat<r, c> m1, const mat<r, c> &m2) {
+mat<r, c> &operator+=(mat<r, c> &m1, const mat<r, c> &m2) {
   for (int i = 0; i < r; i++) {
     m1[i] += m2[i];
   }
@@ -268,7 +291,7 @@ template <int r, int c> mat<r, c> operator+(mat<r, c> m1, const mat<r, c> &m2) {
 }
 
 template <int r, int c>
-mat<r, c> &operator-=(mat<r, c> m1, const mat<r, c> &m2) {
+mat<r, c> &operator-=(mat<r, c> &m1, const mat<r, c> &m2) {
   for (int i = 0; i < r; i++) {
     m1[i] -= m2[i];
   }
