@@ -120,7 +120,7 @@ int main(int argc, char **argv) {
     triangle(ax, ay, az, bx, by, bz, cx, cy, cz, framebuffer, random_color);
   }
 
-  framebuffer.write_tga_file("framebuffer_z.tga");
+  framebuffer.write_tga_file("renders/framebuffer.tga");
 
   return 0;
 }
