@@ -102,7 +102,7 @@ int main(int argc, char **argv) {
     // Build colors
     for (int g = 0; g < 3; g++) {
       for (int v = 0; v < 3; v++) {
-        random_color[g][v] = std::rand() % 255;
+        random_color[g][v] = std::rand() % 256;
       }
     }
     triangle(ax, ay, az, bx, by, bz, cx, cy, cz, framebuffer, random_color);
