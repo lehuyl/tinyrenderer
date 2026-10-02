@@ -5,6 +5,8 @@
 
 #include "tgaimage.h"
 
+#include <filesystem>
+
 constexpr TGAColor white = {255, 255, 255, 255}; // attention, BGRA order
 constexpr TGAColor green = {0, 255, 0, 255};
 constexpr TGAColor red = {0, 0, 255, 255};
@@ -68,6 +70,9 @@ void triangle(int ax, int ay, int az, int bx, int by, int bz, int cx, int cy,
     return; // backface culling + discarding triangles that cover less than 1
             // pixel
 
+  int depth_buffer[height][width];
+  std::vector<std::vector<float>> zbuffer(
+      height, std::vector<float>(width, std::numeric_limits<float>::lowest()));
 #pragma omp parallel for
   for (int x = bbminx; x <= bbmaxx; x++) {
     for (int y = bbminy; y <= bbmaxy; y++) {
@@ -78,13 +83,20 @@ void triangle(int ax, int ay, int az, int bx, int by, int bz, int cx, int cy,
       if (alpha < 0 || beta < 0 || gamma < 0) {
         continue;
       }
-      TGAColor color;
-      // Gradient
-      for (int ch = 0; ch < 3; ch++) {
-        color[ch] = alpha * color_in[0][ch] + beta * color_in[1][ch] +
-                    gamma * color_in[2][ch];
+      // if (alpha > .1 && beta > .1 && gamma > .1) {
+      //   continue;
+      // }
+      auto z = alpha * az + beta * bz + gamma * cz;
+      if (z > depth_buffer[y][x]) {
+        TGAColor color;
+        // Gradient
+        for (int ch = 0; ch < 3; ch++) {
+          color[ch] = alpha * color_in[0][ch] + beta * color_in[1][ch] +
+                      gamma * color_in[2][ch];
+        }
+        framebuffer.set(x, y, color);
+        depth_buffer[y][x] = z;
       }
-      framebuffer.set(x, y, color);
     }
   }
 }
@@ -108,7 +120,7 @@ int main(int argc, char **argv) {
     triangle(ax, ay, az, bx, by, bz, cx, cy, cz, framebuffer, random_color);
   }
 
-  framebuffer.write_tga_file("framebuffer.tga");
+  framebuffer.write_tga_file("framebuffer_z.tga");
 
   return 0;
 }
