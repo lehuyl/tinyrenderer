@@ -128,19 +128,21 @@ template <> struct vec<4> {
   }
 };
 
-template <int n> vec<2> &to_vec2(vec<n> &v) {
+template <int n> vec<2> to_vec2(const vec<n> &v) {
   static_assert(n >= 2, "Need at least 2 components");
   return {v[0], v[1]};
 }
 
-inline vec<3> to_vec3(vec<2> &v, double z) { return {v[0], v[1], z}; }
+inline vec<3> to_vec3(const vec<2> &v, double z) { return {v[0], v[1], z}; }
 
-template <int n> vec<3> to_vec3(vec<4> &v) {
+template <int n> vec<3> to_vec3(const vec<n> &v) {
   static_assert(n >= 3, "Need at least 3 components");
   return {v[0], v[1], v[2]};
 }
 
-inline vec<4> to_vec4(vec<3> &v, double w) { return {v[0], v[1], v[2], w}; }
+inline vec<4> to_vec4(const vec<3> &v, double w) {
+  return {v[0], v[1], v[2], w};
+}
 
 inline vec<3> cross(const vec<3> &v1, const vec<3> &v2) {
   return {(v1.y * v2.z) - (v2.y * v1.z), (v2.x * v1.z) - (v1.x * v2.z),
@@ -157,6 +159,7 @@ template <int n> vec<n> unit_vector(const vec<n> &v) { return v / length(v); }
 
 template <int n> vec<n> operator-(const vec<n> &v) { return -1 * v; }
 
+// Matrix
 template <int nrows, int ncols> struct mat {
   vec<ncols> rows[nrows] = {{}};
   vec<ncols> &operator[](const int idx) {
@@ -167,6 +170,22 @@ template <int nrows, int ncols> struct mat {
   const vec<ncols> &operator[](const int idx) const {
     assert(idx >= 0 && idx < nrows);
     return rows[idx];
+  }
+
+  vec<nrows> get_column(const int idx) const {
+    assert(idx >= 0 && idx < ncols);
+    vec<nrows> result;
+    for (int i = 0; i < nrows; i++) {
+      result[i] = rows[i][idx];
+    }
+    return result;
+  }
+
+  void set_column(const int idx, const vec<nrows> v) {
+    assert(idx >= 0 && idx < ncols);
+    for (int i = 0; i < nrows; i++) {
+      rows[i][idx] = v[i];
+    }
   }
 };
 
