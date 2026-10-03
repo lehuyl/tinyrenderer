@@ -128,6 +128,20 @@ template <> struct vec<4> {
   }
 };
 
+template <int n> vec<2> &to_vec2(vec<n> &v) {
+  static_assert(n >= 2, "Need at least 2 components");
+  return {v[0], v[1]};
+}
+
+inline vec<3> to_vec3(vec<2> &v, double z) { return {v[0], v[1], z}; }
+
+template <int n> vec<3> to_vec3(vec<4> &v) {
+  static_assert(n >= 3, "Need at least 3 components");
+  return {v[0], v[1], v[2]};
+}
+
+inline vec<4> to_vec4(vec<3> &v, double w) { return {v[0], v[1], v[2], w}; }
+
 inline vec<3> cross(const vec<3> &v1, const vec<3> &v2) {
   return {(v1.y * v2.z) - (v2.y * v1.z), (v2.x * v1.z) - (v1.x * v2.z),
           (v1.x * v2.y) - (v2.x * v1.y)};
