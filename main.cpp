@@ -46,10 +46,24 @@ void line(int ax, int ay, int bx, int by, TGAImage &framebuffer,
   }
 }
 
+vec3 rotate(const vec3 &v) {
+  constexpr double theta = M_PI / 6;
+  const mat<3, 3> Ry = {{
+      {std::cos(theta), 0, std::sin(theta)},
+      {0, 1, 0},
+      {-std::sin(theta), 0, std::cos(theta)},
+  }};
+  return Ry * v;
+}
+
+vec3 perspective_project(const vec3 &v, const double c) {
+  return v / (1 - (v.z / c));
+}
+
 vec3 project(vec3 vertex) {
   vertex.x = (vertex.x + 1) * width / 2;
   vertex.y = (vertex.y + 1) * height / 2;
-  vertex.z = (vertex.z + 1) * width / 2;
+  vertex.z = (vertex.z + 1) * 255. / 2;
 
   return vertex;
 }
@@ -62,10 +76,12 @@ double signed_triangle_area(double ax, double ay, double bx, double by,
 
 void triangle(vec3 a, vec3 b, vec3 c, TGAImage &framebuffer,
               TGAColor color_in[3],
-              std::vector<std::vector<double>> &depth_buffer) {
+              std::vector<std::vector<double>> &depth_buffer,
+              TGAImage &zbuffer) {
   // clamp the bounding box to the framebuffer
   double bbminx = std::fmax(std::fmin(std::fmin(a.x, b.x), c.x), 0.0);
   double bbminy = std::fmax(std::fmin(std::fmin(a.y, b.y), c.y), 0.0);
+  // Clamp between [min,width), [min, height)
   double bbmaxx = std::fmin(std::fmax(std::fmax(a.x, b.x), c.x), width - 1);
   double bbmaxy = std::fmin(std::fmax(std::fmax(a.y, b.y), c.y), height - 1);
   double total_area = signed_triangle_area(a.x, a.y, b.x, b.y, c.x, c.y);
@@ -98,6 +114,8 @@ void triangle(vec3 a, vec3 b, vec3 c, TGAImage &framebuffer,
         }
         framebuffer.set(x, y, color);
         depth_buffer[y][x] = z;
+        auto clamped_z = static_cast<unsigned char>(std::fmin(z, 255));
+        zbuffer.set(x, y, {clamped_z});
       }
     }
   }
@@ -114,11 +132,18 @@ int main(int argc, char **argv) {
   std::vector<std::vector<double>> depth_buffer(
       height,
       std::vector<double>(width, std::numeric_limits<double>::lowest()));
+  TGAImage zbuffer(width, height, TGAImage::GRAYSCALE);
 
   for (int i = 0; i < model.num_faces(); i++) {
-    auto a = project(rotate(model.vert(i, 0)));
-    auto b = project(rotate(model.vert(i, 1)));
-    auto c = project(rotate(model.vert(i, 2)));
+    auto a = model.vert(i, 0);
+    auto b = model.vert(i, 1);
+    auto c = model.vert(i, 2);
+    a = perspective_project(rotate(a), 2);
+    b = perspective_project(rotate(b), 2);
+    c = perspective_project(rotate(c), 2);
+    a = project(a);
+    b = project(b);
+    c = project(c);
     TGAColor random_color[3];
 
     // Build colors
@@ -127,10 +152,11 @@ int main(int argc, char **argv) {
         random_color[g][v] = std::rand() % 256;
       }
     }
-    triangle(a, b, c, framebuffer, random_color, depth_buffer);
+    triangle(a, b, c, framebuffer, random_color, depth_buffer, zbuffer);
   }
 
   framebuffer.write_tga_file("renders/framebuffer.tga");
+  zbuffer.write_tga_file("renders/zbuffer.tga");
 
   return 0;
 }
