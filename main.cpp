@@ -5,6 +5,7 @@
 
 #include "tgaimage.h"
 
+#include <algorithm>
 #include <filesystem>
 
 constexpr TGAColor white = {{255, 255, 255, 255}}; // attention, BGRA order
@@ -13,37 +14,34 @@ constexpr TGAColor red = {{0, 0, 255, 255}};
 constexpr TGAColor blue = {{255, 128, 64, 255}};
 constexpr TGAColor yellow = {{0, 200, 255, 255}};
 
-constexpr int aspect_ratio = 1;
-constexpr int width = 1200;
-constexpr int height = width / aspect_ratio;
+mat<4, 4> ModelView, Viewport, Perspective;
 
-void line(int ax, int ay, int bx, int by, TGAImage &framebuffer,
-          TGAColor color) {
-  bool steep = std::abs(ax - bx) < std::abs(ay - by);
-  if (steep) {
-    std::swap(ax, ay);
-    std::swap(bx, by);
-  }
+void viewport(const int x, const int y, const int w, const int h) {
+  Viewport = {{{w / 2.0, 0, 0, x + w / 2.0},
+               {0, h / 2.0, 0, y + h / 2.0},
+               {0, 0, 1, 0},
+               {0, 0, 0, 1}}};
+}
 
-  if (ax > bx) {
-    std::swap(ax, bx);
-    std::swap(ay, by);
-  }
+void perspective(const double f) {
+  Perspective = {{{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {0, 0, -1 / f, f}}};
+}
 
-  int y = ay;
-  int ierror = 0;
-  for (int x = ax; x <= bx; x++) {
-    if (steep) {
-      framebuffer.set(y, x, color);
-    } else {
-      framebuffer.set(x, y, color);
-    }
-    ierror += 2 * std::abs(by - ay);
-    if (ierror > bx - ax) {
-      y += by > ay ? 1 : -1;
-      ierror -= 2 * (bx - ax);
-    }
-  }
+void lookat(const vec3 &eye, const vec3 &center, const vec3 &up) {
+  vec n = unit_vector(eye - center);
+  vec l = unit_vector(cross(up, n));
+  vec m = unit_vector(cross(l, n));
+
+  ModelView = mat<4, 4>{{{l.x, l.y, l.z, 0},
+                         {m.x, m.y, m.z, 0},
+                         {n.x, n.y, n.z, 0},
+                         {0, 0, 0, 1}
+
+              }} *
+              mat<4, 4>{{{1, 0, 0, -center.x},
+                         {0, 1, 0, -center.y},
+                         {0, 0, 1, center.z},
+                         {0, 0, 0, 1}}};
 }
 
 vec3 rotate(const vec3 &v) {
@@ -56,66 +54,54 @@ vec3 rotate(const vec3 &v) {
   return Ry * v;
 }
 
-vec3 perspective_project(const vec3 &v, const double c) {
-  return v / (1 - (v.z / c));
-}
-
-vec3 project(vec3 vertex) {
-  vertex.x = (vertex.x + 1) * width / 2;
-  vertex.y = (vertex.y + 1) * height / 2;
-  vertex.z = (vertex.z + 1) * 255. / 2;
-
-  return vertex;
-}
-
 double signed_triangle_area(double ax, double ay, double bx, double by,
                             double cx, double cy) {
   return .5 * ((by - ay) * (bx + ax) + (cy - by) * (cx + bx) +
                (ay - cy) * (ax + cx));
 }
 
-void triangle(vec3 a, vec3 b, vec3 c, TGAImage &framebuffer,
-              TGAColor color_in[3],
-              std::vector<std::vector<double>> &depth_buffer,
-              TGAImage &zbuffer) {
-  // clamp the bounding box to the framebuffer
-  double bbminx = std::fmax(std::fmin(std::fmin(a.x, b.x), c.x), 0.0);
-  double bbminy = std::fmax(std::fmin(std::fmin(a.y, b.y), c.y), 0.0);
-  // Clamp between [min,width), [min, height)
-  double bbmaxx = std::fmin(std::fmax(std::fmax(a.x, b.x), c.x), width - 1);
-  double bbmaxy = std::fmin(std::fmax(std::fmax(a.y, b.y), c.y), height - 1);
-  double total_area = signed_triangle_area(a.x, a.y, b.x, b.y, c.x, c.y);
-  if (total_area < 1)
-    return; // backface culling + discarding triangles that cover less than 1
-            // pixel
+void rasterize(vec4 clip[3], TGAImage &framebuffer, TGAColor color_in[3],
+               std::vector<std::vector<double>> &depth_buffer,
+               TGAImage &zbuffer) {
+  vec4 ndc[3] = {clip[0] / clip[0].w, clip[1] / clip[1].w, clip[2] / clip[2].w};
+  vec2 screen[3] = {to_vec2(Viewport * ndc[0]), to_vec2(Viewport * ndc[1]),
+                    to_vec2(Viewport * ndc[2])};
+  mat<3, 3> ABC = {{{screen[0].x, screen[0].y, 1.0},
+                    {screen[1].x, screen[1].y, 1.0},
+                    {screen[2].x, screen[2].y, 1.0}}};
+  if (determinant(ABC) < 1)
+    return;
+
+  auto [bbminx, bbmaxx] = std::minmax({screen[0].x, screen[1].x, screen[2].x});
+  auto [bbminy, bbmaxy] = std::minmax({screen[0].y, screen[1].y, screen[2].y});
 
 #pragma omp parallel for
-  for (int x = bbminx; x <= bbmaxx; x++) {
-    for (int y = bbminy; y <= bbmaxy; y++) {
-      double alpha =
-          signed_triangle_area(x, y, b.x, b.y, c.x, c.y) / total_area;
-      double beta = signed_triangle_area(a.x, a.y, x, y, c.x, c.y) / total_area;
-      double gamma =
-          signed_triangle_area(a.x, a.y, b.x, b.y, x, y) / total_area;
+  // Clamp to [0, width), [0, height)
+  for (int x = std::max<int>(bbminx, 0);
+       x <= std::min<int>(bbmaxx, framebuffer.width() - 1); x++) {
+    for (int y = std::max<int>(bbminy, 0);
+         y <= std::min<int>(bbmaxy, framebuffer.height() - 1); y++) {
+      vec3 barycentric_weights =
+          inverse(transpose(ABC)) *
+          vec3(static_cast<double>(x), static_cast<double>(y), 1.0);
 
-      if (alpha < 0 || beta < 0 || gamma < 0) {
+      if (barycentric_weights.x < 0 || barycentric_weights.y < 0 ||
+          barycentric_weights.z < 0) {
         continue;
       }
-      // if (alpha > .1 && beta > .1 && gamma > .1) {
-      //   continue;
-      // }
-      double z = alpha * a.z + beta * b.z + gamma * c.z;
+      double z = dot(barycentric_weights, vec3(ndc[0].z, ndc[1].z, ndc[2].z));
       if (z > depth_buffer[y][x]) {
+
         TGAColor color;
         // Gradient
         for (int ch = 0; ch < 3; ch++) {
-          color[ch] = alpha * color_in[0][ch] + beta * color_in[1][ch] +
-                      gamma * color_in[2][ch];
+          color[ch] = barycentric_weights.x * color_in[0][ch] +
+                      barycentric_weights.y * color_in[1][ch] +
+                      barycentric_weights.z * color_in[2][ch];
         }
         framebuffer.set(x, y, color);
         depth_buffer[y][x] = z;
-        auto clamped_z = static_cast<unsigned char>(std::fmin(z, 255));
-        zbuffer.set(x, y, {clamped_z});
+        zbuffer.set(x, y, color);
       }
     }
   }
@@ -127,23 +113,30 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  constexpr int aspect_ratio = 1;
+  constexpr int width = 1200;
+  constexpr int height = width / aspect_ratio;
+  constexpr vec3 eye{-1, 0, 2};
+  constexpr vec3 center{0, 0, 0};
+  const vec3 up{0, 1, 0};
+
+  lookat(eye, center, up);
+  perspective(length((eye - center)));
+  viewport(width / 16, height / 16, width * 7 / 8, height * 7 / 8);
+
   Model model(argv[1]);
   TGAImage framebuffer(width, height, TGAImage::RGB);
   std::vector<std::vector<double>> depth_buffer(
       height,
       std::vector<double>(width, std::numeric_limits<double>::lowest()));
-  TGAImage zbuffer(width, height, TGAImage::GRAYSCALE);
+  TGAImage zbuffer(width, height, std::numeric_limits<double>::lowest());
 
   for (int i = 0; i < model.num_faces(); i++) {
-    auto a = model.vert(i, 0);
-    auto b = model.vert(i, 1);
-    auto c = model.vert(i, 2);
-    a = perspective_project(rotate(a), 2);
-    b = perspective_project(rotate(b), 2);
-    c = perspective_project(rotate(c), 2);
-    a = project(a);
-    b = project(b);
-    c = project(c);
+    vec4 clip[3];
+    for (int d : {0, 1, 2}) {
+      vec3 v = model.vert(i, d);
+      clip[d] = Perspective * ModelView * to_vec4(v, 1);
+    }
     TGAColor random_color[3];
 
     // Build colors
@@ -152,7 +145,7 @@ int main(int argc, char **argv) {
         random_color[g][v] = std::rand() % 256;
       }
     }
-    triangle(a, b, c, framebuffer, random_color, depth_buffer, zbuffer);
+    rasterize(clip, framebuffer, random_color, depth_buffer, zbuffer);
   }
 
   framebuffer.write_tga_file("renders/framebuffer.tga");
