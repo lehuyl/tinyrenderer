@@ -7,7 +7,7 @@ void init_viewport(const int x, const int y, const int w, const int h);
 void init_zbuffer(const int width, const int height);
 
 struct IShader {
-  virtual std::pair<bool, TGAColor> fragment(const vec3 bar) const = 0;
+  virtual std::pair<bool, TGAColor> fragment(const vec3 barycentric) const = 0;
 };
 
 typedef vec4
