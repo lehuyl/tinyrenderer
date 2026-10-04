@@ -24,13 +24,13 @@ void viewport(const int x, const int y, const int w, const int h) {
 }
 
 void perspective(const double f) {
-  Perspective = {{{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {0, 0, -1 / f, f}}};
+  Perspective = {{{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {0, 0, -1 / f, 1}}};
 }
 
 void lookat(const vec3 &eye, const vec3 &center, const vec3 &up) {
   vec n = unit_vector(eye - center);
   vec l = unit_vector(cross(up, n));
-  vec m = unit_vector(cross(l, n));
+  vec m = unit_vector(cross(n, l));
 
   ModelView = mat<4, 4>{{{l.x, l.y, l.z, 0},
                          {m.x, m.y, m.z, 0},
@@ -40,7 +40,7 @@ void lookat(const vec3 &eye, const vec3 &center, const vec3 &up) {
               }} *
               mat<4, 4>{{{1, 0, 0, -center.x},
                          {0, 1, 0, -center.y},
-                         {0, 0, 1, center.z},
+                         {0, 0, 1, -center.z},
                          {0, 0, 0, 1}}};
 }
 
@@ -113,7 +113,7 @@ int main(int argc, char **argv) {
   std::vector<std::vector<double>> depth_buffer(
       height,
       std::vector<double>(width, std::numeric_limits<double>::lowest()));
-  TGAImage zbuffer(width, height, std::numeric_limits<double>::lowest());
+  TGAImage zbuffer(width, height, TGAImage::GRAYSCALE);
 
   for (int i = 0; i < model.num_faces(); i++) {
     vec4 clip[3];
