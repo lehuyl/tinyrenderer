@@ -21,6 +21,7 @@ struct Face {
 
 class Model {
   std::vector<vec3> vertices;
+  std::vector<vec3> normals;
   std::vector<Face> faces;
 
 public:
@@ -38,6 +39,10 @@ public:
   // 0 <= iface <= nfaces(), 0 <= nthvert < 3
   vec3 vert(const int iface, const int nthvert) const {
     return vertices[faces[iface].corners[nthvert].v];
+  }
+
+  vec3 normal(const int iface, const int nthvert) const {
+    return normals[faces[iface].corners[nthvert].vn];
   }
 
 private:
@@ -72,8 +77,12 @@ private:
           corner.vn--;
           face.corners[i] = corner;
         }
-
         faces.push_back(face);
+
+      } else if (type == "vn") {
+        vec3 normal;
+        iss >> normal.x >> normal.y >> normal.z;
+        normals.push_back(normal);
       }
     }
   }
