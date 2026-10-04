@@ -44,22 +44,6 @@ void lookat(const vec3 &eye, const vec3 &center, const vec3 &up) {
                          {0, 0, 0, 1}}};
 }
 
-vec3 rotate(const vec3 &v) {
-  constexpr double theta = M_PI / 6;
-  const mat<3, 3> Ry = {{
-      {std::cos(theta), 0, std::sin(theta)},
-      {0, 1, 0},
-      {-std::sin(theta), 0, std::cos(theta)},
-  }};
-  return Ry * v;
-}
-
-double signed_triangle_area(double ax, double ay, double bx, double by,
-                            double cx, double cy) {
-  return .5 * ((by - ay) * (bx + ax) + (cy - by) * (cx + bx) +
-               (ay - cy) * (ax + cx));
-}
-
 void rasterize(vec4 clip[3], TGAImage &framebuffer, TGAColor color_in[3],
                std::vector<std::vector<double>> &depth_buffer,
                TGAImage &zbuffer) {
