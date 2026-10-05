@@ -26,6 +26,7 @@ public:
     load_model(filename);
     try {
       normal_map = load_texture(filename, "_nm.tga").value();
+      normal_tangent_map = load_texture(filename, "_nm_tangent.tga").value();
       diffuse_map = load_texture(filename, "_diffuse.tga").value();
       spec_map = load_texture(filename, "_spec.tga").value();
 
@@ -74,6 +75,9 @@ public:
   }
 
   [[nodiscard]] const TGAImage &get_normal_map() const { return normal_map; }
+  [[nodiscard]] const TGAImage &get_normal_tangent_map() const {
+    return normal_tangent_map;
+  }
   [[nodiscard]] const TGAImage &get_diffuse_map() const { return diffuse_map; }
   [[nodiscard]] const TGAImage &get_spec_map() const { return spec_map; }
   [[nodiscard]] const TGAImage &get_glow_map() const { return glow_map; }
@@ -84,6 +88,7 @@ private:
   std::vector<vec3> normals;
   std::vector<Face> faces;
   TGAImage normal_map;
+  TGAImage normal_tangent_map;
   TGAImage diffuse_map;
   TGAImage spec_map;
   TGAImage glow_map;
