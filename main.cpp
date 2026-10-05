@@ -41,18 +41,24 @@ struct PhongShader : IShader {
     return Perspective * gl_position;
   }
 
+  static TGAColor sample(const TGAImage &image, const vec3 &uv) {
+    return image.get(uv.x * image.width(), uv.y * image.height());
+  }
+
   virtual std::pair<bool, TGAColor> fragment(const vec3 barycentric) const {
     // Get normal values from _nm.tga
     vec3 uv = {barycentric.x * tri_tex[0] + barycentric.y * tri_tex[1] +
                barycentric.z * tri_tex[2]};
-    const TGAImage &texture_mapping = model.get_normal_map();
-    TGAColor pixel = texture_mapping.get(uv.x * texture_mapping.width(),
-                                         uv.y * texture_mapping.height());
-    auto x = (pixel[2] / 255.0 * 2) - 1;
-    auto y = (pixel[1] / 255.0 * 2) - 1;
-    auto z = (pixel[0] / 255.0 * 2) - 1;
+    TGAColor normal_pixel = sample(model.get_normal_map(), uv);
+    auto x = (normal_pixel[2] / 255.0 * 2) - 1;
+    auto y = (normal_pixel[1] / 255.0 * 2) - 1;
+    auto z = (normal_pixel[0] / 255.0 * 2) - 1;
     auto n =
         unit_vector(to_vec3(inverse_transpose_ModelView * vec4{x, y, z, 0}));
+
+    TGAColor diffuse_color = sample(model.get_diffuse_map(), uv);
+    TGAColor specular_sample = sample(model.get_spec_map(), uv);
+    double spec_strength = specular_sample[0] / 255.0;
 
     // Calculate Phong reflection value
     auto diffuse = std::fmax(0.0, dot(n, l));
@@ -65,8 +71,8 @@ struct PhongShader : IShader {
 
     TGAColor result;
     for (int ch = 0; ch < 3; ch++) {
-      double value = color[ch] * (ambient + 0.6 * diffuse) +
-                     specular_color[ch] * 0.9 * specular;
+      double value = diffuse_color[ch] * (ambient + 0.6 * diffuse) +
+                     specular_color[ch] * spec_strength * specular;
       result[ch] = static_cast<std::uint8_t>(std::fmin(255.0, value));
     }
     return {false, result};

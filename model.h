@@ -21,15 +21,17 @@ struct Face {
 };
 
 class Model {
-  std::vector<vec3> vertices;
-  std::vector<vec3> textures;
-  std::vector<vec3> normals;
-  std::vector<Face> faces;
-  TGAImage normal_map;
-
 public:
-  Model(const std::string filename) : normal_map(load_normal_map(filename)) {
+  Model(const std::string filename) {
     load_model(filename);
+    try {
+      normal_map = load_texture(filename, "_nm.tga").value();
+      diffuse_map = load_texture(filename, "_diffuse.tga").value();
+      spec_map = load_texture(filename, "_spec.tga").value();
+
+    } catch (const std::bad_exception &e) {
+      std::cerr << e.what() << std::endl;
+    }
 
     // Check if all files loaded correctly
     for (const Face &face : faces) {
@@ -71,9 +73,19 @@ public:
     return normals[faces[iface].corners[nthvert].vn];
   }
 
-  TGAImage get_normal_map() const { return normal_map; }
+  [[nodiscard]] const TGAImage &get_normal_map() const { return normal_map; }
+  [[nodiscard]] const TGAImage &get_diffuse_map() const { return diffuse_map; }
+  [[nodiscard]] const TGAImage &get_spec_map() const { return spec_map; }
 
 private:
+  std::vector<vec3> vertices;
+  std::vector<vec3> textures;
+  std::vector<vec3> normals;
+  std::vector<Face> faces;
+  TGAImage normal_map;
+  TGAImage diffuse_map;
+  TGAImage spec_map;
+
   void load_model(std::string filename) {
     std::ifstream file(filename);
 
@@ -119,14 +131,16 @@ private:
     }
   }
 
-  static TGAImage load_normal_map(const std::string &filename) {
+  static std::optional<TGAImage> load_texture(const std::string &filename,
+                                              const std::string &suffix) {
     std::filesystem::path path(filename);
     path.replace_extension(); // drops ".obj"
-    path += "_nm.tga";
+    path += suffix;
 
     TGAImage image;
     if (!image.read_tga_file(path.string())) {
       std::cerr << "Error opening " << path << "\n";
+      return std::nullopt;
     }
     image.flip_vertically();
 
