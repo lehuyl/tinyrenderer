@@ -1,7 +1,7 @@
 #include "geometry.h"
 #include "tgaimage.h"
 
-void lookat(const vec3 eye, const vec3 center, const vec3 up);
+void lookat(const vec3 eye, const vec3 center, const vec3 up, mat<4, 4> &view);
 void init_perspective(const double f);
 void init_viewport(const int x, const int y, const int w, const int h);
 void init_zbuffer(const int width, const int height);

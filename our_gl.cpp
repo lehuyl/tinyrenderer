@@ -1,21 +1,22 @@
 #include "our_gl.h"
 #include <algorithm>
 
-mat<4, 4> ModelView, Viewport, Perspective; // "OpenGL" state matrices
-std::vector<double> zbuffer;                // depth buffer
+mat<4, 4> ModelView, Viewport, Perspective,
+    LightView;               // "OpenGL" state matrices
+std::vector<double> zbuffer; // depth buffer
 
-void lookat(const vec3 eye, const vec3 center, const vec3 up) {
+void lookat(const vec3 eye, const vec3 center, const vec3 up, mat<4, 4> &view) {
   vec3 n = unit_vector(eye - center);
   vec3 l = unit_vector(cross(up, n));
   vec3 m = unit_vector(cross(n, l));
-  ModelView = mat<4, 4>{{{l.x, l.y, l.z, 0},
-                         {m.x, m.y, m.z, 0},
-                         {n.x, n.y, n.z, 0},
-                         {0, 0, 0, 1}}} *
-              mat<4, 4>{{{1, 0, 0, -center.x},
-                         {0, 1, 0, -center.y},
-                         {0, 0, 1, -center.z},
-                         {0, 0, 0, 1}}};
+  view = mat<4, 4>{{{l.x, l.y, l.z, 0},
+                    {m.x, m.y, m.z, 0},
+                    {n.x, n.y, n.z, 0},
+                    {0, 0, 0, 1}}} *
+         mat<4, 4>{{{1, 0, 0, -center.x},
+                    {0, 1, 0, -center.y},
+                    {0, 0, 1, -center.z},
+                    {0, 0, 0, 1}}};
 }
 
 void init_perspective(const double f) {

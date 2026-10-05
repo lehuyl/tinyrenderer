@@ -8,23 +8,29 @@
 
 #include <algorithm>
 
-extern mat<4, 4> ModelView, Perspective;
+extern mat<4, 4> ModelView, Perspective, LightView, Viewport;
 extern std::vector<double> zbuffer;
 
 struct PhongShader : IShader {
   const Model &model;
-  TGAColor color = {};
   TGAColor specular_color = {};
   vec3 tri[3]; // triangle in eye coordinates
   vec3 tri_tex[3];
   vec3 tri_normal[3];
-
+  const std::vector<double> &light_zbuffer;
+  const int width;
+  const int height;
   vec3 l;
-  mat<4, 4> inverse_transpose_ModelView = inverse(transpose(ModelView));
 
-  PhongShader(const vec3 &light, const Model &m) : model(m) {
-    l = unit_vector(to_vec3(ModelView * to_vec4(light, 0)));
-  }
+  mat<4, 4> inverse_transpose_ModelView = inverse(transpose(ModelView));
+  mat<4, 4> camera_to_light =
+      Viewport * Perspective * LightView * inverse(ModelView);
+
+  PhongShader(const vec3 &light, const Model &m,
+              const std::vector<double> &light_zbuffer, const int &width,
+              const int &height)
+      : model(m), light_zbuffer(light_zbuffer), width(width), height(height),
+        l(unit_vector(to_vec3(ModelView * to_vec4(light, 0)))) {}
 
   virtual vec4 vertex(const int face, const int vert) {
     vec3 v = model.vert(face, vert);
@@ -81,7 +87,7 @@ struct PhongShader : IShader {
     return normal;
   }
 
-  virtual std::pair<bool, TGAColor> fragment(const vec3 barycentric) const {
+  std::pair<bool, TGAColor> fragment(const vec3 barycentric) const override {
     // Get normal values from _nm.tga
     vec3 uv = {barycentric.x * tri_tex[0] + barycentric.y * tri_tex[1] +
                barycentric.z * tri_tex[2]};
@@ -113,14 +119,47 @@ struct PhongShader : IShader {
     auto specular = std::pow(std::fmax(0.0, dot(r, vec3{0, 0, 1})), e);
     double ambient = 0.4;
 
+    vec4 p = to_vec4(vec3{barycentric.x * tri[0] + barycentric.y * tri[1] +
+                          barycentric.z * tri[2]},
+                     1);
+    vec4 q = camera_to_light * p;
+    q = q / q.w;
+    int qx = q.x, qy = q.y;
+    double epsilon = 0.1;
+    bool in_shadow = qx >= 0 && qy >= 0 && qx < width && qy < height &&
+                     q.z < light_zbuffer[qx + qy * width] - epsilon;
+
     TGAColor result;
     for (int ch = 0; ch < 3; ch++) {
-      double value = diffuse_color[ch] * (ambient + 0.6 * diffuse) +
-                     3.0 * specular_color[ch] * spec_strength * specular +
-                     glow[ch];
+      double value = 0;
+      if (in_shadow) {
+        value = diffuse_color[ch] * ambient + glow[ch];
+      } else {
+        value = diffuse_color[ch] * (ambient + 0.6 * diffuse) +
+                3.0 * specular_color[ch] * spec_strength * specular + glow[ch];
+      }
       result[ch] = static_cast<std::uint8_t>(std::fmin(255.0, value));
     }
     return {false, result};
+  }
+};
+
+struct ShadowShader : IShader {
+  const Model &model;
+  vec3 tri[3];
+
+  ShadowShader(const Model &m) : model(m) {}
+
+  virtual vec4 vertex(const int face, const int vert) {
+    vec3 v = model.vert(face, vert);
+    vec4 gl_position = LightView * to_vec4(v, 1);
+    tri[vert] = to_vec3(gl_position);
+
+    return Perspective * gl_position;
+  }
+
+  std::pair<bool, TGAColor> fragment(const vec3 barycentric) const override {
+    return {false, {}};
   }
 };
 
@@ -136,22 +175,39 @@ int main(int argc, char **argv) {
   constexpr vec3 eye{-1, 0, 2};
   constexpr vec3 center{0, 0, 0};
   const vec3 up{0, 1, 0};
-  TGAColor grey{{128, 128, 128, 255}};
+  constexpr vec3 light{1, 1, 1};
   TGAColor white{{255, 255, 255, 255}};
 
-  lookat(eye, center, up);
+  lookat(eye, center, up, ModelView);
+  lookat(light, center, up, LightView);
   init_perspective(length((eye - center)));
   init_viewport(width / 16, height / 16, width * 7 / 8, height * 7 / 8);
   init_zbuffer(width, height);
   TGAImage framebuffer(width, height, TGAImage::RGB, {{177, 195, 255, 209}});
-  constexpr vec3 light{1, 1, 1};
+  TGAImage scratch{width, height, TGAImage::RGB};
 
+  std::vector<Model> models;
   for (int m = 1; m < argc; m++) {
-    Model model(argv[m]);
-    PhongShader shader(light, model);
+    models.emplace_back(argv[m]);
+  }
+
+  for (auto &model : models) {
+    ShadowShader shadow_shader{model};
 
     for (int f = 0; f < model.num_faces(); f++) {
-      shader.color = grey;
+      Triangle clip{shadow_shader.vertex(f, 0), shadow_shader.vertex(f, 1),
+                    shadow_shader.vertex(f, 2)};
+      rasterize(clip, shadow_shader, scratch);
+    }
+  }
+
+  std::vector<double> light_zbuffer = zbuffer;
+  init_zbuffer(width, height);
+
+  for (auto &model : models) {
+    PhongShader shader(light, model, light_zbuffer, width, height);
+
+    for (int f = 0; f < model.num_faces(); f++) {
       shader.specular_color = white;
 
       Triangle clip = {shader.vertex(f, 0), shader.vertex(f, 1),
