@@ -18,6 +18,7 @@ struct PhongShader : IShader {
   vec3 tri[3]; // triangle in eye coordinates
   vec3 tri_normal[3];
   vec3 l;
+  mat<4, 4> inverse_transpose_ModelView = inverse(transpose(ModelView));
 
   PhongShader(const vec3 &light, const Model &m) : model(m) {
     l = unit_vector(to_vec3(ModelView * to_vec4(light, 0)));
@@ -29,7 +30,7 @@ struct PhongShader : IShader {
     tri[vert] = to_vec3(gl_position);
 
     vec3 n = model.normal(face, vert);
-    vec4 gl_normal = ModelView * to_vec4(n, 0);
+    vec4 gl_normal = unit_vector(inverse_transpose_ModelView * to_vec4(n, 0));
     tri_normal[vert] = to_vec3(gl_normal);
 
     return Perspective * gl_position;
