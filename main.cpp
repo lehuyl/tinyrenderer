@@ -16,7 +16,9 @@ struct PhongShader : IShader {
   TGAColor color = {};
   TGAColor specular_color = {};
   vec3 tri[3]; // triangle in eye coordinates
+  vec3 tri_tex[3];
   vec3 tri_normal[3];
+
   vec3 l;
   mat<4, 4> inverse_transpose_ModelView = inverse(transpose(ModelView));
 
@@ -29,6 +31,9 @@ struct PhongShader : IShader {
     vec4 gl_position = ModelView * to_vec4(v, 1);
     tri[vert] = to_vec3(gl_position);
 
+    vec t = model.tex(face, vert);
+    tri_tex[vert] = to_vec3(t);
+
     vec3 n = model.normal(face, vert);
     vec4 gl_normal = unit_vector(inverse_transpose_ModelView * to_vec4(n, 0));
     tri_normal[vert] = to_vec3(gl_normal);
@@ -37,9 +42,19 @@ struct PhongShader : IShader {
   }
 
   virtual std::pair<bool, TGAColor> fragment(const vec3 barycentric) const {
-    auto n = unit_vector(barycentric.x * tri_normal[0] +
-                         barycentric.y * tri_normal[1] +
-                         barycentric.z * tri_normal[2]);
+    // Get normal values from _nm.tga
+    vec3 uv = {barycentric.x * tri_tex[0] + barycentric.y * tri_tex[1] +
+               barycentric.z * tri_tex[2]};
+    const TGAImage &texture_mapping = model.get_normal_map();
+    TGAColor pixel = texture_mapping.get(uv.x * texture_mapping.width(),
+                                         uv.y * texture_mapping.height());
+    auto x = (pixel[2] / 255.0 * 2) - 1;
+    auto y = (pixel[1] / 255.0 * 2) - 1;
+    auto z = (pixel[0] / 255.0 * 2) - 1;
+    auto n =
+        unit_vector(to_vec3(inverse_transpose_ModelView * vec4{x, y, z, 0}));
+
+    // Calculate Phong reflection value
     auto diffuse = std::fmax(0.0, dot(n, l));
     auto r = dot(n, l) * 2 * n - l;
     // v is always (0,0,1) because we build the camera on l,m,n and n is the
@@ -47,6 +62,7 @@ struct PhongShader : IShader {
     auto e = 88;
     auto specular = std::pow(std::fmax(0.0, dot(r, vec3{0, 0, 1})), e);
     double ambient = 0.3;
+
     TGAColor result;
     for (int ch = 0; ch < 3; ch++) {
       double value = color[ch] * (ambient + 0.6 * diffuse) +
@@ -77,7 +93,7 @@ int main(int argc, char **argv) {
   init_perspective(length((eye - center)));
   init_viewport(width / 16, height / 16, width * 7 / 8, height * 7 / 8);
   init_zbuffer(width, height);
-  TGAImage framebuffer(width, height, TGAImage::RGB, {177, 195, 255, 209});
+  TGAImage framebuffer(width, height, TGAImage::RGB, {{177, 195, 255, 209}});
   constexpr vec3 light{1, 1, 1};
 
   for (int m = 1; m < argc; m++) {
