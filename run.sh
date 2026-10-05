@@ -7,12 +7,12 @@ if [ $# -gt 0 ]; then
   exit
 fi
 
-# With no arguments, render every scenario to renders/<name>.tga
+# With no arguments, render every scenario, standing on the floor, to renders/<name>.tga
 render() {
   name=$1
   shift
   echo "== $name"
-  time ./build/tinyrenderer "$@" && cp renders/framebuffer.tga "renders/$name.tga"
+  time ./build/tinyrenderer "$@" obj/floor.obj && cp renders/framebuffer.tga "renders/$name.tga"
 }
 
 render diablo obj/diablo3_pose/diablo3_pose.obj
