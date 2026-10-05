@@ -32,6 +32,7 @@ public:
     } catch (const std::bad_exception &e) {
       std::cerr << e.what() << std::endl;
     }
+    glow_map = load_texture(filename, "_glow.tga").value_or(TGAImage{});
 
     // Check if all files loaded correctly
     for (const Face &face : faces) {
@@ -48,7 +49,6 @@ public:
         }
       }
     }
-    normal_map = get_normal_map();
   }
 
   // number of vertices
@@ -76,6 +76,7 @@ public:
   [[nodiscard]] const TGAImage &get_normal_map() const { return normal_map; }
   [[nodiscard]] const TGAImage &get_diffuse_map() const { return diffuse_map; }
   [[nodiscard]] const TGAImage &get_spec_map() const { return spec_map; }
+  [[nodiscard]] const TGAImage &get_glow_map() const { return glow_map; }
 
 private:
   std::vector<vec3> vertices;
@@ -85,6 +86,7 @@ private:
   TGAImage normal_map;
   TGAImage diffuse_map;
   TGAImage spec_map;
+  TGAImage glow_map;
 
   void load_model(std::string filename) {
     std::ifstream file(filename);

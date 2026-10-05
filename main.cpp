@@ -60,6 +60,8 @@ struct PhongShader : IShader {
     TGAColor specular_sample = sample(model.get_spec_map(), uv);
     double spec_strength = specular_sample[0] / 255.0;
 
+    auto glow = sample(model.get_glow_map(), uv);
+
     // Calculate Phong reflection value
     auto diffuse = std::fmax(0.0, dot(n, l));
     auto r = dot(n, l) * 2 * n - l;
@@ -72,7 +74,7 @@ struct PhongShader : IShader {
     TGAColor result;
     for (int ch = 0; ch < 3; ch++) {
       double value = diffuse_color[ch] * (ambient + 0.6 * diffuse) +
-                     specular_color[ch] * spec_strength * specular;
+                     specular_color[ch] * spec_strength * specular + glow[ch];
       result[ch] = static_cast<std::uint8_t>(std::fmin(255.0, value));
     }
     return {false, result};
@@ -80,7 +82,7 @@ struct PhongShader : IShader {
 };
 
 int main(int argc, char **argv) {
-  if (argc <= 2) {
+  if (argc < 2) {
     std::cerr << "Usage: " << argv[0] << " obj/model.obj" << std::endl;
     return 1;
   }
@@ -92,7 +94,6 @@ int main(int argc, char **argv) {
   constexpr vec3 center{0, 0, 0};
   const vec3 up{0, 1, 0};
   TGAColor grey{{128, 128, 128, 255}};
-
   TGAColor white{{255, 255, 255, 255}};
 
   lookat(eye, center, up);
