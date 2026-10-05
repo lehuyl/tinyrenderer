@@ -25,8 +25,9 @@ public:
   Model(const std::string filename) {
     load_model(filename);
     try {
-      normal_map = load_texture(filename, "_nm.tga").value();
-      normal_tangent_map = load_texture(filename, "_nm_tangent.tga").value();
+      normal_map = load_texture(filename, "_nm.tga").value_or(TGAImage{});
+      normal_tangent_map =
+          load_texture(filename, "_nm_tangent.tga").value_or(TGAImage{});
       diffuse_map = load_texture(filename, "_diffuse.tga").value();
       spec_map = load_texture(filename, "_spec.tga").value();
 

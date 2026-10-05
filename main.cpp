@@ -88,9 +88,15 @@ struct PhongShader : IShader {
     vec3 n = unit_vector(barycentric.x * tri_normal[0] +
                          barycentric.y * tri_normal[1] +
                          barycentric.z * tri_normal[2]);
-    vec3 normal =
-        get_normal_from_nm_tangent_tga(model.get_normal_tangent_map(), uv, n);
-    // vec3 normal = get_normal_from_nm_tga(model.get_normal_map(), uv);
+    vec3 normal;
+    if (model.get_normal_tangent_map().width() > 0) {
+      normal =
+          get_normal_from_nm_tangent_tga(model.get_normal_tangent_map(), uv, n);
+    } else if (model.get_normal_map().width() > 0) {
+      normal = get_normal_from_nm_tga(model.get_normal_map(), uv);
+    } else {
+      normal = n;
+    }
 
     TGAColor diffuse_color = sample(model.get_diffuse_map(), uv);
     TGAColor specular_sample = sample(model.get_spec_map(), uv);
